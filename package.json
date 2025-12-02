@@ -1,0 +1,19 @@
+{
+  "name": "express-hello-world",
+  "version": "1.0.0",
+  "description": "Express Hello World on Render",
+  "main": "app.js",
+  "repository": "https://github.com/render-examples/express-hello-world",
+  "author": "Render Developers",
+  "license": "MIT",
+  "private": false,
+  "scripts": {
+    "start": "node app.js"
+  },
+  "dependencies": {
+    "@elevenlabs/elevenlabs-js": "^2.26.0",
+    "express": "^5.0.0",
+    "grammy": "^1.38.4",
+    "multer": "^1.4.5-lts.1"
+  }
+}
