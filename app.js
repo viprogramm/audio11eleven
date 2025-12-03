@@ -316,6 +316,13 @@ app.post("/upload", upload.single("audioFile"), async (req, res) => {
 const server = app.listen(port, async () => {
   console.log(`Example app listening on port ${port}!`);
   
+  // Log environment variables for debugging
+  console.log("=== Environment Variables ===");
+  console.log("BOT_TOKEN:", BOT_TOKEN ? `${BOT_TOKEN}...` : "NOT SET");
+  console.log("WEBHOOK_URL:", WEBHOOK_URL || "NOT SET");
+  console.log("ELEVENLABS_API_KEY:", ELEVENLABS_API_KEY ? `${ELEVENLABS_API_KEY.substring(0, 10)}...` : "NOT SET");
+  console.log("=============================");
+  
   // Set webhook for Telegram bot
   if (bot && WEBHOOK_URL) {
     try {
