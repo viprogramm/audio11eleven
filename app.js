@@ -59,12 +59,8 @@ if (bot) {
       const filePath = file.file_path;
       const fileUrl = `https://api.telegram.org/file/bot${BOT_TOKEN}/${filePath}`;
       
-      // Download file to temporary location
-      const localPath = path.join(uploadDir, `${Date.now()}.ogg`);
-      await downloadFile(fileUrl, localPath);
-      
-      // Process with ElevenLabs
-      const transcription = await processAudioFile(localPath);
+      // Download and process as stream
+      const transcription = await processAudioFromUrl(fileUrl, 'audio/ogg');
       
       // Send transcription back to user
       if (transcription && transcription.text) {
@@ -95,13 +91,18 @@ if (bot) {
       const filePath = file.file_path;
       const fileUrl = `https://api.telegram.org/file/bot${BOT_TOKEN}/${filePath}`;
       
-      // Download file
-      const ext = path.extname(filePath) || '.mp3';
-      const localPath = path.join(uploadDir, `${Date.now()}${ext}`);
-      await downloadFile(fileUrl, localPath);
+      // Determine MIME type from file extension
+      const ext = path.extname(filePath).toLowerCase();
+      const mimeTypes = {
+        '.mp3': 'audio/mp3',
+        '.wav': 'audio/wav',
+        '.m4a': 'audio/m4a',
+        '.ogg': 'audio/ogg'
+      };
+      const mimeType = mimeTypes[ext] || 'audio/mpeg';
       
-      // Process with ElevenLabs
-      const transcription = await processAudioFile(localPath);
+      // Download and process as stream
+      const transcription = await processAudioFromUrl(fileUrl, mimeType);
       
       // Send transcription back to user
       if (transcription && transcription.text) {
@@ -133,12 +134,8 @@ if (bot) {
       const filePath = file.file_path;
       const fileUrl = `https://api.telegram.org/file/bot${BOT_TOKEN}/${filePath}`;
       
-      // Download file
-      const localPath = path.join(uploadDir, `${Date.now()}.mp4`);
-      await downloadFile(fileUrl, localPath);
-      
-      // Process with ElevenLabs (it can extract audio from video)
-      const transcription = await processAudioFile(localPath);
+      // Download and process as stream
+      const transcription = await processAudioFromUrl(fileUrl, 'video/mp4');
       
       // Send transcription back to user
       if (transcription && transcription.text) {
@@ -175,48 +172,48 @@ if (bot) {
   });
 }
 
-// Helper function to download file
-function downloadFile(url, dest) {
+// Helper function to download file from URL as buffer
+function downloadFileAsBuffer(url) {
   return new Promise((resolve, reject) => {
-    const file = fs.createWriteStream(dest);
     https.get(url, (response) => {
-      response.pipe(file);
-      file.on('finish', () => {
-        file.close();
-        resolve();
+      const chunks = [];
+      
+      response.on('data', (chunk) => {
+        chunks.push(chunk);
+      });
+      
+      response.on('end', () => {
+        resolve(Buffer.concat(chunks));
+      });
+      
+      response.on('error', (err) => {
+        reject(err);
       });
     }).on('error', (err) => {
-      fs.unlink(dest, () => {});
       reject(err);
     });
   });
 }
 
-// Helper function to process audio with ElevenLabs
-async function processAudioFile(filePath) {
+// Helper function to process audio from URL (streaming)
+async function processAudioFromUrl(fileUrl, mimeType) {
   try {
     if (!elevenlabs) {
       throw new Error("ElevenLabs API key not configured");
     }
 
-    const audioBuffer = fs.readFileSync(filePath);
-    
-    const ext = path.extname(filePath).toLowerCase();
-    const mimeTypes = {
-      '.mp3': 'audio/mp3',
-      '.wav': 'audio/wav',
-      '.m4a': 'audio/m4a',
-      '.ogg': 'audio/ogg',
-      '.webm': 'audio/webm',
-      '.mp4': 'video/mp4'
-    };
-    const mimeType = mimeTypes[ext] || 'audio/mpeg';
+    console.log("=== Processing Audio from URL ===");
+    console.log("URL:", fileUrl);
+    console.log("MIME type:", mimeType);
 
+    // Download file as buffer
+    const audioBuffer = await downloadFileAsBuffer(fileUrl);
+    
+    console.log("File size:", audioBuffer.length, "bytes");
+    
     const audioBlob = new Blob([audioBuffer], { type: mimeType });
     
     console.log("Sending to ElevenLabs API...");
-    console.log("File type:", mimeType);
-    console.log("File size:", audioBuffer.length, "bytes");
     
     const transcription = await elevenlabs.speechToText.convert({
       file: audioBlob,
@@ -231,16 +228,12 @@ async function processAudioFile(filePath) {
     console.log("Language detected:", transcription.languageCode);
     console.log("Language probability:", transcription.languageProbability);
 
-    // Clean up temporary file
-    fs.unlinkSync(filePath);
-
     return transcription;
   } catch (error) {
-    console.error("Error in processAudioFile:", error);
-    // Clean up file on error
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
-    }
+    console.error("=== Error in processAudioFromUrl ===");
+    console.error("Error name:", error.name);
+    console.error("Error message:", error.message);
+    console.error("Error stack:", error.stack);
     throw error;
   }
 }
@@ -408,7 +401,7 @@ const html = `
   </head>
   <body>
     <section>
-      <h1>!@Audio to Text Transcription</h1>
+      <h1>Audio to Text Transcription</h1>
       <div id="uploadSection">
         <input type="file" id="audioFile" accept="audio/*" />
         <button onclick="uploadFile()">Upload Audio File</button>
